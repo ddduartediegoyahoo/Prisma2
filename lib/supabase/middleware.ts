@@ -19,25 +19,26 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
-          cookiesToSet.forEach(({ name, value }) =>
+          // CRITICAL: Filter out auth token cookies with empty values.
+          // When getUser() refreshes the session and encounters issues,
+          // Supabase SSR may call setAll with empty cookie values,
+          // which would destroy the existing valid session cookies.
+          const validCookies = cookiesToSet.filter(({ name, value }) => {
+            if (name.includes('-auth-token') && !name.includes('code-verifier') && value === '') {
+              return false;
+            }
+            return true;
+          });
+
+          validCookies.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
-          
           supabaseResponse = NextResponse.next({
             request,
           });
-          
-          cookiesToSet.forEach(({ name, value, options }) => {
-            // Ensure cookies work in production Vercel environment
-            const cookieOptions = {
-              ...options,
-              secure: true,
-              sameSite: 'lax' as const,
-              path: '/',
-            };
-            
-            supabaseResponse.cookies.set(name, value, cookieOptions);
-          });
+          validCookies.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
         },
       },
     }
