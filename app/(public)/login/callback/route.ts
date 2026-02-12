@@ -1,20 +1,19 @@
-import { createRouteHandlerClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
-  const requestUrl = new URL(request.url);
-  const code = requestUrl.searchParams.get("code");
-  const origin = requestUrl.origin;
+  const { searchParams, origin } = new URL(request.url);
+  const code = searchParams.get("code");
+  const next = searchParams.get("next") ?? "/dashboard";
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=no_code`);
   }
 
-  const { client: supabase, applyCookies } = await createRouteHandlerClient();
+  const supabase = await createClient();
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
-    console.error('[Login Callback] Exchange code error:', error);
     return NextResponse.redirect(`${origin}/login?error=auth_failed`);
   }
 
@@ -31,18 +30,14 @@ export async function GET(request: Request) {
       .single();
 
     if (profile?.blocked) {
-      const response = NextResponse.redirect(`${origin}/blocked`);
-      return applyCookies(response);
+      return NextResponse.redirect(`${origin}/blocked`);
     }
 
     // Redirect admin to config, teacher to dashboard
     if (profile?.role === "admin") {
-      const response = NextResponse.redirect(`${origin}/config`);
-      return applyCookies(response);
+      return NextResponse.redirect(`${origin}/config`);
     }
   }
 
-  // Redirect to dashboard
-  const response = NextResponse.redirect(`${origin}/dashboard`);
-  return applyCookies(response);
+  return NextResponse.redirect(`${origin}${next}`);
 }
