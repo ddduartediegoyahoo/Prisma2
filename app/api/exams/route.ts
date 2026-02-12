@@ -7,10 +7,31 @@ const MAX_PDF_SIZE = 25 * 1024 * 1024; // 25 MB
 export async function POST(request: Request) {
   const supabase = await createClient();
 
+  // #region agent log
+  // DEBUG: Log cookies present in the request (H-A, H-B)
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+  const allCookies = cookieStore.getAll();
+  const authCookies = allCookies.filter((c) => c.name.includes("-auth-token"));
+  console.error(
+    `[DEBUG-EXAM] cookies_present: total=${allCookies.length}, auth_token_cookies=${authCookies.length}, auth_cookie_names=${JSON.stringify(authCookies.map((c) => ({ name: c.name, valueLen: c.value.length })))}`
+  );
+  fetch('http://127.0.0.1:7242/ingest/c491e1b0-b474-424a-8796-672ad319e0e9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api/exams/route.ts:POST',message:'cookies_present',data:{total:allCookies.length,authCount:authCookies.length,authNames:authCookies.map(c=>({name:c.name,valueLen:c.value.length}))},timestamp:Date.now(),hypothesisId:'H-A,H-B'})}).catch(()=>{});
+  // #endregion
+
   // 1. Verify authenticated user
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser();
+
+  // #region agent log
+  // DEBUG: Log getUser() result (H-A, H-D)
+  console.error(
+    `[DEBUG-EXAM] getUser_result: user=${user ? user.id : 'null'}, error=${authError ? JSON.stringify({ message: authError.message, status: authError.status }) : 'none'}`
+  );
+  fetch('http://127.0.0.1:7242/ingest/c491e1b0-b474-424a-8796-672ad319e0e9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api/exams/route.ts:POST',message:'getUser_result',data:{userId:user?.id??null,error:authError?{message:authError.message,status:authError.status}:null},timestamp:Date.now(),hypothesisId:'H-A,H-D'})}).catch(()=>{});
+  // #endregion
 
   if (!user) {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
