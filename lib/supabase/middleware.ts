@@ -22,12 +22,22 @@ export async function updateSession(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
+          
           supabaseResponse = NextResponse.next({
             request,
           });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
+          
+          cookiesToSet.forEach(({ name, value, options }) => {
+            // Ensure cookies work in production Vercel environment
+            const cookieOptions = {
+              ...options,
+              secure: true,
+              sameSite: 'lax' as const,
+              path: '/',
+            };
+            
+            supabaseResponse.cookies.set(name, value, cookieOptions);
+          });
         },
       },
     }
@@ -37,7 +47,17 @@ export async function updateSession(request: NextRequest) {
   // Use getUser() which validates the JWT against the Supabase Auth server.
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser();
+
+  // Debug logging for Vercel
+  console.log('[Middleware Debug]', {
+    pathname: request.nextUrl.pathname,
+    hasUser: !!user,
+    error: error?.message,
+    cookieCount: request.cookies.getAll().length,
+    cookieNames: request.cookies.getAll().map(c => c.name).filter(n => n.includes('supabase'))
+  });
 
   const { pathname } = request.nextUrl;
 
