@@ -3,10 +3,18 @@ import { NextResponse, type NextRequest } from "next/server";
 
 /**
  * Creates a Supabase client for use in Next.js middleware.
- * Handles cookie reading/writing across the request/response cycle.
+ * Uses a read-only cookie approach to prevent session corruption.
+ * 
+ * IMPORTANT: The setAll callback intentionally does NOT propagate
+ * empty cookies back to the response. When getUser/getClaims triggers
+ * a session refresh that fails (e.g., due to network issues or race
+ * conditions with concurrent requests), Supabase SSR calls setAll 
+ * with empty cookie values, which would destroy the browser's valid 
+ * session cookies. By skipping the response cookie propagation,
+ * we preserve the existing valid session.
  */
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
+  const supabaseResponse = NextResponse.next({
     request,
   });
 
@@ -18,24 +26,18 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          supabaseResponse = NextResponse.next({
-            request,
-          });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
+        setAll() {
+          // Intentionally empty: we do NOT write cookies back from middleware.
+          // Session tokens are set by the login callback route handler.
+          // The middleware only reads cookies to check authentication.
+          // Writing cookies here causes session corruption on Vercel
+          // when concurrent RSC requests trigger token refresh failures.
         },
       },
     }
   );
 
-  // Use getClaims() instead of getUser() to validate JWT locally
-  // without making a network call to the Supabase Auth server.
-  // This prevents timeouts, rate limiting, and cookie corruption issues.
+  // Validate JWT locally without network call
   const { data } = await supabase.auth.getClaims();
   const user = data?.claims;
 
