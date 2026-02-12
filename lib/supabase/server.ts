@@ -14,9 +14,16 @@ export async function createClient() {
         },
         setAll(cookiesToSet) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
+            cookiesToSet.forEach(({ name, value, options }) => {
+              // CRITICAL: Never set auth token cookies with empty values.
+              // When getUser() triggers a token refresh that fails
+              // (e.g. due to concurrent requests), Supabase SSR calls
+              // setAll with empty cookie values, destroying the session.
+              if (name.includes('-auth-token') && !name.includes('code-verifier') && value === '') {
+                return;
+              }
+              cookieStore.set(name, value, options);
+            });
           } catch {
             // The `setAll` method was called from a Server Component.
             // This can be ignored if you have middleware refreshing user sessions.
