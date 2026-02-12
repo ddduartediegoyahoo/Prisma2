@@ -1,37 +1,23 @@
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  });
+/**
+ * Checks if the user has valid Supabase auth cookies.
+ * Does NOT use Supabase SSR client at all to prevent cookie corruption.
+ * Simply verifies that auth token cookies exist with non-empty values.
+ */
+function hasAuthSession(request: NextRequest): boolean {
+  const allCookies = request.cookies.getAll();
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          supabaseResponse = NextResponse.next({
-            request,
-          });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
-        },
-      },
-    }
+  // Look for Supabase auth token chunks (sb-*-auth-token.0, etc.)
+  const authTokenChunks = allCookies.filter(
+    (c) => c.name.match(/-auth-token\.\d+$/) && c.value.length > 0
   );
 
-  // Use getClaims() — validates JWT locally without network call
-  const { data } = await supabase.auth.getClaims();
-  const user = data?.claims;
+  return authTokenChunks.length > 0;
+}
+
+export async function updateSession(request: NextRequest) {
+  const isAuthenticated = hasAuthSession(request);
 
   const { pathname } = request.nextUrl;
 
@@ -42,18 +28,18 @@ export async function updateSession(request: NextRequest) {
     pathname === "/";
 
   // Not authenticated and not on public route → redirect to login
-  if (!user && !isPublicRoute) {
+  if (!isAuthenticated && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
   // Authenticated user visiting login page → redirect to dashboard
-  if (user && pathname === "/login") {
+  if (isAuthenticated && pathname === "/login") {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
 
-  return supabaseResponse;
+  return NextResponse.next();
 }
