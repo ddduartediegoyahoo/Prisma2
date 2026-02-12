@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
@@ -18,25 +18,14 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
-          // CRITICAL: Filter out auth token cookies with empty values.
-          // When getUser() refreshes the session and encounters issues,
-          // Supabase SSR may call setAll with empty cookie values,
-          // which would destroy the existing valid session cookies.
-          const validCookies = cookiesToSet.filter(({ name, value }) => {
-            if (name.includes('-auth-token') && !name.includes('code-verifier') && value === '') {
-              return false;
-            }
-            return true;
-          });
-
-          validCookies.forEach(({ name, value }) =>
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
           supabaseResponse = NextResponse.next({
             request,
           });
-          validCookies.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           );
         },
@@ -44,23 +33,11 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // IMPORTANT: Do not use supabase.auth.getSession() in middleware.
-  // Use getUser() which validates the JWT against the Supabase Auth server.
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  // Debug logging for Vercel
-  const allCookies = request.cookies.getAll();
-  console.log('[Middleware Debug]', {
-    pathname: request.nextUrl.pathname,
-    hasUser: !!user,
-    error: error?.message,
-    cookieCount: allCookies.length,
-    allCookieNames: allCookies.map(c => c.name),
-    supabaseCookies: allCookies.filter(c => c.name.startsWith('sb-')).map(c => ({ name: c.name, valueLength: c.value.length }))
-  });
+  // Use getClaims() instead of getUser() to validate JWT locally
+  // without making a network call to the Supabase Auth server.
+  // This prevents timeouts, rate limiting, and cookie corruption issues.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims;
 
   const { pathname } = request.nextUrl;
 
@@ -83,7 +60,7 @@ export async function updateSession(request: NextRequest) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role, blocked")
-      .eq("id", user.id)
+      .eq("id", user.sub)
       .single();
 
     // 2a. Blocked user → redirect to /blocked
