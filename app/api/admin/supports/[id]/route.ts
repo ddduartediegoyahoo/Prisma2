@@ -27,8 +27,8 @@ export async function PATCH(
   if (parsed.data.enabled === true) {
     // When enabling, we need to validate agent and model existence/enablement
     if (parsed.data.agent_id || parsed.data.model_id) {
-      agentIdToValidate = parsed.data.agent_id;
-      modelIdToValidate = parsed.data.model_id;
+      agentIdToValidate = parsed.data.agent_id ?? undefined;
+      modelIdToValidate = parsed.data.model_id ?? undefined;
     }
 
     // If not all IDs provided in payload, fetch current support to get existing references
