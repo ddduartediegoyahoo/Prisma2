@@ -51,12 +51,14 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Debug logging for Vercel
+  const allCookies = request.cookies.getAll();
   console.log('[Middleware Debug]', {
     pathname: request.nextUrl.pathname,
     hasUser: !!user,
     error: error?.message,
-    cookieCount: request.cookies.getAll().length,
-    cookieNames: request.cookies.getAll().map(c => c.name).filter(n => n.includes('supabase'))
+    cookieCount: allCookies.length,
+    allCookieNames: allCookies.map(c => c.name),
+    supabaseCookies: allCookies.filter(c => c.name.startsWith('sb-')).map(c => ({ name: c.name, valueLength: c.value.length }))
   });
 
   const { pathname } = request.nextUrl;
