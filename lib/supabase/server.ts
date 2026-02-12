@@ -20,13 +20,20 @@ export async function createClient() {
               // (e.g. due to concurrent requests), Supabase SSR calls
               // setAll with empty cookie values, destroying the session.
               if (name.includes('-auth-token') && !name.includes('code-verifier') && value === '') {
+                // #region agent log
+                console.error(`[DEBUG-SERVER] setAll_blocked_empty: name=${name}`);
+                fetch('http://127.0.0.1:7242/ingest/c491e1b0-b474-424a-8796-672ad319e0e9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.ts:setAll',message:'blocked_empty_cookie',data:{name},timestamp:Date.now(),hypothesisId:'H-A'})}).catch(()=>{});
+                // #endregion
                 return;
               }
               cookieStore.set(name, value, options);
             });
-          } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing user sessions.
+          } catch (e) {
+            // #region agent log
+            // DEBUG: Log when setAll fails (Server Component context) (H-A)
+            console.error(`[DEBUG-SERVER] setAll_catch: error=${e instanceof Error ? e.message : String(e)}, cookies=${JSON.stringify(cookiesToSet.map(c => ({ name: c.name, valueLen: c.value.length })))}`);
+            fetch('http://127.0.0.1:7242/ingest/c491e1b0-b474-424a-8796-672ad319e0e9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'server.ts:setAll',message:'setAll_catch',data:{error:e instanceof Error?e.message:String(e),cookies:cookiesToSet.map(c=>({name:c.name,valueLen:c.value.length}))},timestamp:Date.now(),hypothesisId:'H-A'})}).catch(()=>{});
+            // #endregion
           }
         },
       },
