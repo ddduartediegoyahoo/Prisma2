@@ -6,20 +6,12 @@ export async function GET(request: Request) {
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/dashboard";
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/c491e1b0-b474-424a-8796-672ad319e0e9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'callback/route.ts:5',message:'Login callback started',data:{hasCode:!!code},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
-  // #endregion
-
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=no_code`);
   }
 
   const supabase = await createClient();
   const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/c491e1b0-b474-424a-8796-672ad319e0e9',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'callback/route.ts:15',message:'Session exchange result',data:{hasError:!!error,errorMsg:error?.message},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
-  // #endregion
 
   if (error) {
     return NextResponse.redirect(`${origin}/login?error=auth_failed`);
