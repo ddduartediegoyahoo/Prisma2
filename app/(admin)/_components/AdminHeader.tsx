@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
@@ -41,11 +40,11 @@ export function AdminHeader({ profile }: AdminHeaderProps) {
             </span>
           </div>
         </div>
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/logout" title="Sair">
+        <form action="/logout" method="POST">
+          <Button variant="ghost" size="icon" type="submit" title="Sair">
             <LogOut className="h-4 w-4" />
-          </Link>
-        </Button>
+          </Button>
+        </form>
       </div>
     </header>
   );
