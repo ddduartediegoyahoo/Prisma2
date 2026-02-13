@@ -38,11 +38,11 @@ export function TeacherHeader({ profile }: TeacherHeaderProps) {
             {profile.full_name ?? "Professor"}
           </span>
         </div>
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/logout" title="Sair">
+        <form action="/logout" method="POST">
+          <Button variant="ghost" size="icon" type="submit" title="Sair">
             <LogOut className="h-4 w-4" />
-          </Link>
-        </Button>
+          </Button>
+        </form>
       </div>
     </header>
   );
